@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Reset Password - HabitOff</title>
+  <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+  <style>
+    body {
+      font-family: sans-serif;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      background: #f4f4f4;
+    }
+    .container {
+      background: white;
+      padding: 20px 30px;
+      border-radius: 10px;
+      box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+      width: 320px;
+    }
+    h2 {
+      margin-bottom: 10px;
+    }
+    input, button {
+      width: 100%;
+      margin: 8px 0;
+      padding: 10px;
+      font-size: 16px;
+    }
+    button {
+      background: #6a5acd;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+    button:disabled {
+      background: #aaa;
+    }
+    .status {
+      margin-top: 10px;
+      font-size: 14px;
+      color: #333;
+    }
+    .error {
+      color: red;
+      font-size: 14px;
+      margin-top: -5px;
+      margin-bottom: 5px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h2>Reset Password</h2>
+    <p id="status">Checking your reset link...</p>
+    <form id="resetForm" style="display:none;">
+      <input type="password" id="newPassword" placeholder="Enter new password" required />
+      <input type="password" id="confirmPassword" placeholder="Confirm new password" required />
+      <div id="error" class="error"></div>
+      <button type="submit">Update Password</button>
+    </form>
+  </div>
+
+  <script>
+    // ✅ Replace with your Supabase project values
+    const SUPABASE_URL = "https://nvykkjhveujbjnlefuxk.supabase.co";
+    const SUPABASE_ANON_KEY = "YOUR_SUPABASE_ANON_KEY";
+    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    const statusEl = document.getElementById("status");
+    const resetForm = document.getElementById("resetForm");
+    const errorEl = document.getElementById("error");
+
+    // Extract code from URL (?code= or #access_token=)
+    function getRecoveryCode() {
+      const urlParams = new URLSearchParams(window.location.search);
+      let code = urlParams.get("code");
+
+      if (!code && window.location.hash) {
+        const hashParams = new URLSearchParams(window.location.hash.substring(1));
+        if (hashParams.get("type") === "recovery") {
+          code = hashParams.get("access_token");
+        }
+      }
+      return code;
+    }
+
+    const code = getRecoveryCode();
+
+    if (code) {
+      supabase.auth.exchangeCodeForSession(code).then(({ error }) => {
+        if (error) {
+          statusEl.textContent = "❌ Invalid or expired reset link.";
+        } else {
+          statusEl.textContent = "Please enter your new password.";
+          resetForm.style.display = "block";
+        }
+      });
+    } else {
+      statusEl.textContent = "Reset link is missing a code or token.";
+    }
+
+    // Handle password reset form
+    resetForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      errorEl.textContent = "";
+
+      const newPassword = document.getElementById("newPassword").value.trim();
+      const confirmPassword = document.getElementById("confirmPassword").value.trim();
+
+      if (newPassword.length < 6) {
+        errorEl.textContent = "Password must be at least 6 characters.";
+        return;
+      }
+      if (newPassword !== confirmPassword) {
+        errorEl.textContent = "Passwords do not match.";
+        return;
+      }
+
+      const { error } = await supabase.auth.updateUser({ password: newPassword });
+
+      if (error) {
+        statusEl.textContent = "❌ Error: " + error.message;
+      } else {
+        statusEl.textContent = "✅ Password updated successfully. You can now log in.";
+        resetForm.style.display = "none";
+      }
+    });
+  </script>
+</body>
+</html>
